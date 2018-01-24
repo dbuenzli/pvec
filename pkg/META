@@ -1,0 +1,7 @@
+description = "Persistent vectors for OCaml"
+version = "%%VERSION_NUM%%"
+requires = ""
+archive(byte) = "pvec.cma"
+archive(native) = "pvec.cmxa"
+plugin(byte) = "pvec.cma"
+plugin(native) = "pvec.cmxs"
