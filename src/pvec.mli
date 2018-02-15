@@ -465,25 +465,37 @@ val fields : ?drop_empty:bool -> is_sep:('a -> bool) -> 'a t -> 'a t t
 
 (** {1:search_select Searching and selecting elements} *)
 
-val left_find : ?start:int -> ('a -> bool) -> 'a t -> (int * 'a) option
-(** [left_find ~start sat v] is [Some (i, v.(i))] with [i] the
+val left_findi : ?start:int -> (int -> 'a -> bool) -> 'a t -> (int * 'a) option
+(** [left_findi ~start sat v] is [Some (i, v.(i))] with [i] the
     smallest index [i], if any, greater or equal to [start] such that
-    [sat v.(i)] is [true]. [start] defaults to [0]. By definition
-    if [start < 0] the search starts at [0] and if [i > length v - 1]
+    [sat i v.(i)] is [true]. [start] defaults to [0]. By definition if
+    [start < 0] the search starts at [0] and if [i > length v - 1]
     [None] is returned. *)
 
-val right_find : ?start:int -> ('a -> bool) -> 'a t -> (int * 'a) option
+val right_findi : ?start:int -> (int -> 'a -> bool) -> 'a t -> (int * 'a) option
 (** [right_find ~start sat v] is [Some (i, v.(i))] with [i] the
     greatest index [i], if any, smaller or equal to [start] such that
-    [sat v.(i)] is [true]. [start] defaults to [length v - 1]. By definition
-    if [start < 0], [None] is returned and if [start > length v - 1] the
-    search starts at [length v - 1]. *)
+    [sat i v.(i)] is [true]. [start] defaults to [length v - 1]. By
+    definition if [start < 0], [None] is returned and if [start >
+    length v - 1] the search starts at [length v - 1]. *)
+
+val left_find : ?start:int -> ('a -> bool) -> 'a t -> (int * 'a) option
+(** [left_find ~start sat v] is [left_findi ~start (fun _ e -> sat e) v]. *)
+
+val right_find : ?start:int -> ('a -> bool) -> 'a t -> (int * 'a) option
+(** [right_find ~start sat v] is [right_findi ~start (fun _ e -> sat e) v]. *)
+
+val partitioni : (int -> 'a -> bool) -> 'a t -> 'a t * 'a t
+(** [partitioni sat v] is a pair of vectors [(vt, vf)] with [vt] the
+    elements that satisfy [sat] and [vf] the elements that do not. In
+    both vectors the order is preserved. No guarantee is provided on
+    the invocation of [f] on elements. *)
 
 val partition : ('a -> bool) -> 'a t -> 'a t * 'a t
-(** [partition sat v] is a pair of vectors [(vt, vf)] with
-    [vt] the elements that satisfy [sat] and [vf] the elements
-    that do not. In both vectors the order is preserved. No guarantee is
-    provided on the invocation of [f] on elements. *)
+(** [partition sat v] is [partitioni (fun _ e -> sat v)]. *)
+
+val filteri : (int -> 'a -> bool) -> 'a t -> 'a t
+(** [filter sat v] is [fst (partitioni sat v)]. *)
 
 val filter : ('a -> bool) -> 'a t -> 'a t
 (** [filter sat v] is [fst (partition sat v)]. *)
@@ -556,8 +568,8 @@ val dump : (Format.formatter -> 'a -> unit) -> Format.formatter -> 'a t ->
     using [pp_v] to print the elements. *)
 
 (**/**)
-val branching : int
-(** [branching] is the internal branching factor. *)
+val branching_factor : int
+(** [branching_factor] is the internal branching factor. *)
 (**/**)
 
 (*---------------------------------------------------------------------------

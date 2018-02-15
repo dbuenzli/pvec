@@ -10,7 +10,7 @@ let log f = Format.printf (f ^^ "@.")
 (* Maximal vector length in random tests *)
 
 let len_hint =
-  let m = Pvec.branching in
+  let m = Pvec.branching_factor in
   [ "leaf", m - 1 (* one leaf *);
     "small", m * m + 1; (* depth of 2, ~1000 els *)
     "medium", m * m * m + 1; (* depth of 3, ~32'000 els *)
@@ -386,7 +386,7 @@ let test_append () =
   done;
   ()
 
-let test_push () =
+let test_add () =
   log "Testing Pvec.add_{first,last}";
   assert Pvec.(get (add_first (-1) empty) 0 = -1);
   assert Pvec.(get (add_last empty (-1)) 0 = -1);
@@ -575,14 +575,14 @@ let test_map () =
     let is' = Pvec.map (fun (_, v) -> v) p0 in
     assert Pvec.(equal ~eq p0 p1);
     assert Pvec.(equal ~eq is is');
-    let keep_pair v = if v mod 2 = 0 then Some v else None in
-    let pair0 = Pvec.filter_map keep_pair is in
-    let keep_pair i _ = if i mod 2 = 0 then Some i else None in
-    let pair1 = Pvec.filter_mapi keep_pair is in
-    assert Pvec.(for_alli (fun i e -> i * 2 = e) pair0);
-    assert Pvec.(length pair0 = (len + 2 - 1) / 2 (* ceil *));
-    assert Pvec.(for_alli (fun i e -> i * 2 = e) pair1);
-    assert Pvec.(length pair1 = (len + 2 - 1) / 2 (* ceil *));
+    let keep_even v = if v mod 2 = 0 then Some v else None in
+    let even0 = Pvec.filter_map keep_even is in
+    let keep_even i _ = if i mod 2 = 0 then Some i else None in
+    let even1 = Pvec.filter_mapi keep_even is in
+    assert Pvec.(for_alli (fun i e -> i * 2 = e) even0);
+    assert Pvec.(length even0 = (len + 2 - 1) / 2 (* ceil *));
+    assert Pvec.(for_alli (fun i e -> i * 2 = e) even1);
+    assert Pvec.(length even1 = (len + 2 - 1) / 2 (* ceil *));
   done;
   ()
 
@@ -602,6 +602,7 @@ let test_rev () =
   done;
   ()
 
+
 let test_indices () =
   log "Testing Pvec.indices";
   assert Pvec.(is_empty @@ indices empty);
@@ -610,6 +611,14 @@ let test_indices () =
     let is = iseq len in
     assert Pvec.(equal ~eq is (indices is));
   done;
+  ()
+
+let test_transpose () =
+  log "Testing Pvec.transpose TODO";
+  ()
+
+let test_sort () =
+  log "Testing Pvec.{sort_uniq,stable_sort} TODO";
   ()
 
 let test_shuffle () =
@@ -706,7 +715,7 @@ let test_chunk () =
   for i = 1 to repeat_count do
     let len = nz_rlen max_len in
     let is = iseq len in
-    let size = rlen len in
+    let size = rlen (len - 2) + 1 in
     assert_invalid_arg (Pvec.chunk_left (-1)) is;
     assert_invalid_arg (Pvec.chunk_right 0) is;
     assert Pvec.(equal ~eq (singleton is) (chunk_left len is));
@@ -726,7 +735,7 @@ let test_chunk () =
   ()
 
 let test_pop () =
-  log "Text Pvec.pop_{first,last}";
+  log "Test Pvec.pop_{first,last}";
   assert Pvec.(pop_first empty = None);
   assert Pvec.(pop_last empty = None);
   for i = 1 to repeat_count do
@@ -744,6 +753,106 @@ let test_pop () =
         assert (h = Pvec.get_last is);
         assert Pvec.(equal ~eq tl (drop_right 1 is));
     end;
+  done;
+  ()
+
+let test_partition_filter () =
+  log "Test Pvec.{partition[_i],filter[_i]}";
+  let assert_p partition filter p v t f =
+    let pt, pf = partition p v in
+    let fv = filter p v in
+    assert (Pvec.equal ~eq pt t); assert (Pvec.equal ~eq pf f);
+    assert (Pvec.equal ~eq fv t);
+    ()
+  in
+  let assert_pi p v t f = assert_p Pvec.partitioni Pvec.filteri p v t f in
+  let assert_p p v t f = assert_p Pvec.partition Pvec.filter p v t f in
+  assert_pi (fun _ _ -> false) Pvec.empty Pvec.empty Pvec.empty;
+  assert_pi (fun _ _ -> true) Pvec.empty Pvec.empty Pvec.empty;
+  assert_p (fun _ -> false) Pvec.empty Pvec.empty Pvec.empty;
+  assert_p (fun _ -> true) Pvec.empty Pvec.empty Pvec.empty;
+  for i = 1 to repeat_count do
+    let len = nz_rlen max_len in
+    let is = iseq len in
+    let odd_count = len / 2 in
+    let even_count = if len mod 2 = 0 then odd_count else odd_count + 1 in
+    let is_eveni i _ = i mod 2 = 0 in
+    let is_even v = v mod 2 = 0 in
+    let even = Pvec.init ~len:even_count (fun i -> i * 2) in
+    let odd = Pvec.init ~len:odd_count (fun i -> i * 2 + 1) in
+    assert_pi is_eveni is even odd;
+    assert_p is_even is even odd;
+  done;
+  ()
+
+let test_keep_lose_span () =
+  log "Test Pvec.{keep,lose,span}[i]_{left,right} TODO";
+  ()
+
+let test_trim () =
+  log "Test Pvec.trim[i] TODO";
+  ()
+
+let test_cuts () =
+  log "Test Pvec.{cut,cuts}_{left,right} TODO";
+  ()
+
+let test_fields () =
+  log "Test Pvec.fields TODO";
+  ()
+
+let test_find () =
+  log "Test Pvec.{left,right}_find[i]";
+  assert (Pvec.left_findi (fun _ _ -> false) Pvec.empty = None);
+  assert (Pvec.left_findi (fun _ _ -> true) Pvec.empty = None);
+  assert (Pvec.left_findi ~start:10 (fun _ _ -> false) Pvec.empty = None);
+  assert (Pvec.left_findi ~start:10 (fun _ _ -> true) Pvec.empty = None);
+  assert (Pvec.right_findi (fun _ _ -> false) Pvec.empty = None);
+  assert (Pvec.right_findi (fun _ _ -> true) Pvec.empty = None);
+  assert (Pvec.right_findi ~start:10 (fun _ _ -> false) Pvec.empty = None);
+  assert (Pvec.right_findi ~start:10 (fun _ _ -> true) Pvec.empty = None);
+  assert (Pvec.left_find (fun _ -> false) Pvec.empty = None);
+  assert (Pvec.left_find (fun _ -> true) Pvec.empty = None);
+  assert (Pvec.left_find ~start:10 (fun _ -> false) Pvec.empty = None);
+  assert (Pvec.left_find ~start:10 (fun _ -> true) Pvec.empty = None);
+  assert (Pvec.right_find (fun _ -> false) Pvec.empty = None);
+  assert (Pvec.right_find (fun _ -> true) Pvec.empty = None);
+  assert (Pvec.right_find ~start:10 (fun _ -> false) Pvec.empty = None);
+  assert (Pvec.right_find ~start:10 (fun _ -> true) Pvec.empty = None);
+  for i = 1 to repeat_count do
+    let len = nz_rlen max_len in
+    let is = iseq len in
+    let ridx = rand len in
+    let start = rand len in
+    let findi_ridx i _ = i = ridx in
+    let find_ridx v = v = ridx in
+    let found ridx = Some (ridx, ridx) in
+    let left start ridx = if start <= ridx then found ridx else None in
+    let right start ridx = if start >= ridx then found ridx else None in
+    assert (Pvec.left_findi (fun _ _ -> false) is = None);
+    assert (Pvec.left_findi ~start (fun _ _ -> false) is = None);
+    assert (Pvec.left_findi ~start:(len + 1) findi_ridx is = None);
+    assert (Pvec.left_findi findi_ridx is = Some (ridx, ridx));
+    assert (Pvec.left_findi ~start:(-1) findi_ridx is = found ridx);
+    assert (Pvec.left_findi ~start findi_ridx is = left start ridx);
+    assert (Pvec.right_findi (fun _ _ -> false) is = None);
+    assert (Pvec.right_findi ~start (fun _ _ -> false) is = None);
+    assert (Pvec.right_findi ~start:(-1) findi_ridx is = None);
+    assert (Pvec.right_findi findi_ridx is = found ridx);
+    assert (Pvec.right_findi ~start:(len + 1) findi_ridx is = found ridx);
+    assert (Pvec.right_findi ~start findi_ridx is = right start ridx);
+    assert (Pvec.left_find (fun _ -> false) is = None);
+    assert (Pvec.left_find ~start (fun _ -> false) is = None);
+    assert (Pvec.left_find ~start:(len + 1) find_ridx is = None);
+    assert (Pvec.left_find find_ridx is = Some (ridx, ridx));
+    assert (Pvec.left_find ~start:(-1) find_ridx is = found ridx);
+    assert (Pvec.left_find ~start find_ridx is = left start ridx);
+    assert (Pvec.right_find (fun _ -> false) is = None);
+    assert (Pvec.right_find ~start (fun _ -> false) is = None);
+    assert (Pvec.right_find ~start:(-1) find_ridx is = None);
+    assert (Pvec.right_find find_ridx is = found ridx);
+    assert (Pvec.right_find ~start:(len + 1) find_ridx is = found ridx);
+    assert (Pvec.right_find ~start find_ridx is = right start ridx);
   done;
   ()
 
@@ -765,7 +874,7 @@ let test () =
     test_getting ();
     test_range ();
     test_append ();
-    test_push ();
+    test_add ();
 (*    test_concat (); *)
     test_splice ();
     test_setting ();
@@ -774,11 +883,19 @@ let test () =
     test_map ();
     test_rev ();
     test_indices ();
+    test_transpose ();
+    test_sort ();
     test_shuffle ();
     test_unstutter ();
     test_take_drop_break ();
     test_chunk ();
     test_pop ();
+    test_keep_lose_span ();
+    test_trim ();
+    test_cuts ();
+    test_fields ();
+    test_find ();
+    test_partition_filter ();
     log "[OK] %s" reproduce;
     log "[OK] All tests succeded!";
   with
